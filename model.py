@@ -9,6 +9,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
+# !curl -L "https://universe.roboflow.com/ds/2UYiWKosT1?key=mzq9dcrZBg" > roboflow.zip; unzip roboflow.zip; rm roboflow.zip
+
 # Define the PoseClassifier class using CNN layers
 class PoseClassifierCNN(nn.Module):
     def __init__(self, num_keypoints, num_classes):
@@ -302,49 +304,48 @@ class TaekwondoPoseClassifier:
 # if predicted_class:
 #     print(f"Predicted class for the new image: {predicted_class}")
 
+if __name__ == "__main__":
+    # Создание экземпляра класса
+    classifier = TaekwondoPoseClassifier(num_keypoints=33) # MediaPipe Pose gives 33 keypoints by default
+
+    # Загрузка и подготовка данных для обучения
+    print("Loading and preparing training data...")
+    train_annotation_file = '/content/train/_annotations.coco.json'
+    train_image_dir = '/content/train/'
+    train_skeletons, train_labels = classifier.get_skeletons_and_labels_from_coco(train_annotation_file, train_image_dir)
+    train_data_tensor, train_labels_tensor = classifier.prepare_data(train_skeletons, train_labels)
+
+    # Построение модели
+    print("\nBuilding the model...")
+    classifier.build_model()
+
+    # Обучение модели
+    if train_data_tensor.shape[0] > 0:
+        print("\nStarting model training...")
+        classifier.train(train_data_tensor, train_labels_tensor, num_epochs=600) # Using 100 epochs for example
+
+    # Загрузка и подготовка данных для валидации
+    print("\nLoading and preparing validation data...")
+    valid_annotation_file = '/content/valid/_annotations.coco.json'
+    valid_image_dir = '/content/valid/'
+    valid_skeletons, valid_labels = classifier.get_skeletons_and_labels_from_coco(valid_annotation_file, valid_image_dir)
+    valid_data_tensor, valid_labels_tensor = classifier.prepare_data(valid_skeletons, valid_labels)
 
 
-# Создание экземпляра класса
-classifier = TaekwondoPoseClassifier(num_keypoints=33) # MediaPipe Pose gives 33 keypoints by default
-
-# Загрузка и подготовка данных для обучения
-print("Loading and preparing training data...")
-train_annotation_file = '/content/train/_annotations.coco.json'
-train_image_dir = '/content/train/'
-train_skeletons, train_labels = classifier.get_skeletons_and_labels_from_coco(train_annotation_file, train_image_dir)
-train_data_tensor, train_labels_tensor = classifier.prepare_data(train_skeletons, train_labels)
-
-# Построение модели
-print("\nBuilding the model...")
-classifier.build_model()
-
-# Обучение модели
-if train_data_tensor.shape[0] > 0:
-    print("\nStarting model training...")
-    classifier.train(train_data_tensor, train_labels_tensor, num_epochs=600) # Using 100 epochs for example
-
-# Загрузка и подготовка данных для валидации
-print("\nLoading and preparing validation data...")
-valid_annotation_file = '/content/valid/_annotations.coco.json'
-valid_image_dir = '/content/valid/'
-valid_skeletons, valid_labels = classifier.get_skeletons_and_labels_from_coco(valid_annotation_file, valid_image_dir)
-valid_data_tensor, valid_labels_tensor = classifier.prepare_data(valid_skeletons, valid_labels)
+    # Оценка модели на валидационных данных
+    if valid_data_tensor.shape[0] > 0:
+        print("\nEvaluating model on validation data...")
+        classifier.evaluate(valid_data_tensor, valid_labels_tensor)
+    else:
+        print("\nNo valid validation data to evaluate on.")
 
 
-# Оценка модели на валидационных данных
-if valid_data_tensor.shape[0] > 0:
-    print("\nEvaluating model on validation data...")
-    classifier.evaluate(valid_data_tensor, valid_labels_tensor)
-else:
-    print("\nNo valid validation data to evaluate on.")
+    # Предсказание на новом изображении
+    print("\nMaking a prediction on a new image...")
+    new_image_path = '/content/test/IMG_1986_jpg.rf.cbf82c03d42156f01b5a85d407a375ef.jpg' # Example image from test set
+    predicted_class = classifier.predict(new_image_path)
 
-
-# Предсказание на новом изображении
-print("\nMaking a prediction on a new image...")
-new_image_path = '/content/test/IMG_1986_jpg.rf.cbf82c03d42156f01b5a85d407a375ef.jpg' # Example image from test set
-predicted_class = classifier.predict(new_image_path)
-
-if predicted_class:
-    print(f"\nPredicted class for {new_image_path}: {predicted_class}")
-else:
-    print(f"\nCould not make a prediction for {new_image_path}")
+    if predicted_class:
+        print(f"\nPredicted class for {new_image_path}: {predicted_class}")
+    else:
+        print(f"\nCould not make a prediction for {new_image_path}")
